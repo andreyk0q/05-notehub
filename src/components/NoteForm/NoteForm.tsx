@@ -1,13 +1,12 @@
 import { Formik, Form, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { NoteTag } from "../../types/note";
-import type { CreateNoteData } from "../../services/noteService";
+import { createNote, type CreateNoteData } from "../../services/noteService";
 import css from "./NoteForm.module.css";
 
 interface NoteFormProps {
-  onSubmit: (values: CreateNoteData) => void;
-  onCancel: () => void;
-  isSubmitting: boolean;
+  onClose: () => void;
 }
 
 const initialValues: CreateNoteData = {
@@ -27,16 +26,26 @@ const validationSchema = Yup.object({
     .required("Tag is required"),
 });
 
-export default function NoteForm({
-  onSubmit,
-  onCancel,
-  isSubmitting,
-}: NoteFormProps) {
+export default function NoteForm({ onClose }: NoteFormProps) {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: createNote,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+      onClose();
+    },
+  });
+
+  const handleSubmit = (values: CreateNoteData) => {
+    mutation.mutate(values);
+  };
+
   return (
     <Formik
       initialValues={initialValues}
       validationSchema={validationSchema}
-      onSubmit={onSubmit}
+      onSubmit={handleSubmit}
     >
       <Form className={css.form}>
         <div className={css.formGroup}>
@@ -70,17 +79,13 @@ export default function NoteForm({
         </div>
 
         <div className={css.actions}>
-          <button
-            type="button"
-            className={css.cancelButton}
-            onClick={onCancel}
-          >
+          <button type="button" className={css.cancelButton} onClick={onClose}>
             Cancel
           </button>
           <button
             type="submit"
             className={css.submitButton}
-            disabled={isSubmitting}
+            disabled={mutation.isPending}
           >
             Create note
           </button>
